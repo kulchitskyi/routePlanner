@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <title>Додати нове місце</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            overflow-y: auto;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .back-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .back-link:hover {
+            transform: translateX(-5px);
+        }
+
+        .full-page-form {
+            width: 500px;
+            max-width: 95%;
+            margin: auto;
+        }
+
+        /* Auth Modal overrides if any (none needed, handled by styles.css) */
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        .user-name-tag {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 77, 77, 0.1);
+            color: #ff4d4d;
+            border-color: rgba(255, 77, 77, 0.2);
+        }
+
+        .auth-box {
+            width: 400px;
+            max-width: 90%;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal-mask hidden">
+        <div class="auth-box landing-form liquid-glass">
+            <h2 style="text-align: center; margin-bottom: 15px;">Авторизація</h2>
+            <p style="color: #94a3b8; margin: 0 0 15px 0; font-size: 0.95rem; text-align: center;">Для додавання місця
+                потрібно увійти</p>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Вхід</button>
+                <button class="auth-tab" data-tab="register">Реєстрація</button>
+            </div>
+
+            <div class="auth-error" id="authError"></div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Пароль</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                <button id="loginBtn" class="step-btn">Увійти</button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <label>Ім'я користувача</label>
+                    <input type="text" id="regUsername" placeholder="Ваше ім'я" required>
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Пароль (мін. 8 символів)</label>
+                    <input type="password" id="regPassword" placeholder="••••••••" required>
+                </div>
+                <button id="registerBtn" class="step-btn">Зареєструватися</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+                <button id="closeAuthBtn" class="secondary-btn">Продовжити без входу</button>
+                <a href="index.html"
+                    style="display: block; text-align: center; color: #94a3b8; text-decoration: none; font-size: 0.9rem;">←
+                    Повернутися на карту</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="full-page-form landing-form liquid-glass">
+        <div class="header-row">
+            <a href="index.html" class="back-link">← Повернутися на карту</a>
+
+            <div id="userInfo" class="user-info" style="display: none;">
+                <span style="font-size: 1.2rem;">👤</span>
+                <span id="userName" class="user-name-tag"></span>
+                <button class="logout-btn" id="logoutBtn">Вийти</button>
+            </div>
+        </div>
+
+        <h1
+            style="margin-bottom: 30px; font-size: 2rem; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            Додати нове місце</h1>
+
+        <div id="place-form-steps" class="form-step active">
+            <div class="input-group">
+                <label>Назва місця*</label>
+                <input type="text" id="placeName" placeholder="Введіть назву..." required>
+            </div>
+
+            <div class="input-group">
+                <label>Опис*</label>
+                <textarea id="placeDesc" rows="4" placeholder="Розкажіть про це місце..." required></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>Адреса*</label>
+                <input type="text" id="placeAddress" placeholder="Вулиця, номер будинку..." required>
+            </div>
+
+            <div class="input-group">
+                <label>Теги (через кому)</label>
+                <input type="text" id="placeTags" placeholder="historical, museum, park...">
+            </div>
+
+            <div style="display: flex; gap: 15px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Широта (Lat)*</label>
+                    <input type="number" id="placeLat" step="any" placeholder="50.45" required>
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>Довгота (Lng)*</label>
+                    <input type="number" id="placeLng" step="any" placeholder="30.52" required>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Рейтинг (0-5)</label>
+                <input type="number" id="placeRating" min="0" max="5" step="0.1" value="0">
+            </div>
+
+            <button id="savePlaceBtn" class="step-btn">Зберегти місце</button>
+        </div>
+    </div>
+
+    <script type="module">
+        const API_URL = 'http://localhost:8080/api/v1';
+
+        // Auth State
+        function getToken() {
+            return localStorage.getItem('auth_token');
+        }
+
+        function getUser() {
+            const user = localStorage.getItem('auth_user');
+            return user ? JSON.parse(user) : null;
+        }
+
+        function setAuth(token, user) {
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('auth_user', JSON.stringify(user));
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('authError');
+            el.innerText = msg;
+            el.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('authError').style.display = 'none';
+        }
+
+        // Check auth on load
+        function checkAuth() {
+            const token = getToken();
+            const user = getUser();
+
+            if (token && user) {
+                const modal = document.getElementById('authModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('active');
+                document.getElementById('userInfo').style.display = 'flex';
+                document.getElementById('userName').innerText = user.username;
+            } else {
+                document.getElementById('userInfo').style.display = 'none';
+            }
+        }
+
+        // Tab switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+                tab.classList.add('active');
+                const formId = tab.dataset.tab + 'Form';
+                const form = document.getElementById(formId);
+                if (form) form.classList.add('active');
+                hideError();
+            });
+        });
+
+        // Login
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showError('Заповніть всі поля');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    setAuth(data.token, data.user);
+                    checkAuth();
+                } else {
+                    showError(data.error || 'Невірний email або пароль');
+                }
+            } catch (e) {
+                showError('Помилка з\'єднання з сервером');
+            }
+        });
+
+        // Register
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const username = document.getElementById('regUsername').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+
+            if (!username || !email || !password) {
+                showError('Заповніть всі поля');
+                return;
+            }
+
+            if (password.length < 8) {
+                showError('Пароль повинен містити мінімум 8 символів');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    setAuth(data.token, data.user);
+                    checkAuth();
+                } else {
+                    showError(data.error || 'Помилка реєстрації');
+                }
+            } catch (e) {
+                showError('Помилка з\'єднання з сервером');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            clearAuth();
+            checkAuth();
+        });
+
+        // Close Modal
+        document.getElementById('closeAuthBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('authModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('active');
+        });
+
+        // Save Place
+        document.getElementById('savePlaceBtn').addEventListener('click', async () => {
+            const token = getToken();
+            if (!token) {
+                const modal = document.getElementById('authModal');
+                modal.classList.add('active');
+                modal.classList.remove('hidden');
+                return;
+            }
+
+            const btn = document.getElementById('savePlaceBtn');
+            const data = {
+                name: document.getElementById('placeName').value,
+                description: document.getElementById('placeDesc').value,
+                address: document.getElementById('placeAddress').value,
+                tags: document.getElementById('placeTags').value.split(',').map(t => t.trim()).filter(t => t),
+                location: {
+                    latitude: parseFloat(document.getElementById('placeLat').value),
+                    longitude: parseFloat(document.getElementById('placeLng').value)
+                },
+                rating: parseFloat(document.getElementById('placeRating').value)
+            };
+
+            if (!data.name || !data.description || !data.address || isNaN(data.location.latitude) || isNaN(data.location.longitude)) {
+                alert("Будь ласка, заповніть усі обов'язкові поля!");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Збереження...";
+
+            try {
+                const response = await fetch(`${API_URL}/places`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert("Місце успішно додано!");
+                    window.location.href = 'index.html';
+                } else if (response.status === 401) {
+                    clearAuth();
+                    checkAuth();
+                    alert("Сесія закінчилась. Будь ласка, увійдіть знову.");
+                } else {
+                    const error = await response.json();
+                    alert("Помилка при збереженні: " + (error.error || response.statusText));
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Не вдалося з'єднатися з сервером.");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Зберегти місце";
+            }
+        });
+
+        // Autofill location from URL params if available
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('lat')) document.getElementById('placeLat').value = params.get('lat');
+        if (params.has('lng')) document.getElementById('placeLng').value = params.get('lng');
+
+        // Check auth on page load
+        checkAuth();
+    </script>
+</body>
+
+</html>

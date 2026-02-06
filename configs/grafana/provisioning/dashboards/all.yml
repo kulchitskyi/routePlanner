@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Default'               # Name of the provider
+    orgId: 1
+    folder: 'Main'                # The folder in Grafana UI where it will appear
+    type: file
+    disableDeletion: false
+    editable: true                # Set to true if you want to keep editing it
+    options:
+      path: /var/lib/grafana/dashboards  # This MUST match the path in your Docker volume

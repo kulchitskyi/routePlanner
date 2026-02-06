@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <title>Travel Route Planner</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div id="landing-container">
+        <!-- Main Menu -->
+        <div class="main-menu-container">
+            <div class="menu-icon" id="mainMenuIcon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="menu-dropdown" id="mainMenuDropdown">
+                <a href="add-place.html" class="menu-item">
+                    <span class="menu-icon-placeholder">+</span> Додати нове місце
+                </a>
+                <div class="menu-divider"></div>
+                <div id="authMenuItems">
+                    <a href="#" id="loginMenuBtn" class="menu-item">
+                        <span class="menu-icon-placeholder">🔑</span> Увійти
+                    </a>
+                    <a href="#" id="logoutMenuBtn" class="menu-item" style="display: none;">
+                        <span class="menu-icon-placeholder">🚪</span> Вийти (<span id="menuUsername"></span>)
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div id="landing-header">
+            <h1>Travel Route Planner</h1>
+            <p>Створіть свій ідеальний маршрут за лічені секунди. Введіть свої вподобання, і ми зробимо все інше.</p>
+        </div>
+
+        <div class="landing-form liquid-glass">
+            <!-- Step 1: Preferences -->
+            <div id="step-preferences" class="form-step active">
+                <div class="input-group">
+                    <label>Опишіть свої вподобання</label>
+                    <textarea id="prefInput" placeholder="Я хотів би випити кави, а потім сходити в зоопарк"
+                        maxlength="300" autofocus rows="1"></textarea>
+                </div>
+                <button id="nextToRadiusBtn" class="step-btn">Далі</button>
+            </div>
+
+            <!-- Step 2: Radius -->
+            <div id="step-radius" class="form-step">
+                <div class="input-group">
+                    <label>Радіус пошуку: <span id="radiusVal">2000м</span></label>
+                    <div class="slider-container">
+                        <input type="range" id="radiusSlider" min="500" max="10000" step="500" value="2000">
+                    </div>
+                </div>
+                <div class="step-controls">
+                    <button id="backToPrefBtn" class="secondary-btn">Назад</button>
+                    <button id="nextToMapBtn" class="step-btn">Далі до карти</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-window">
+        <!-- Step 3: Selection Header (Above Map) -->
+        <div id="selection-header" class="liquid-glass selection-panel">
+            <h3 class="selection-caption">Оберіть точку відправлення на карті</h3>
+            <div class="selection-controls-row">
+                <div id="selected-coords" class="coords-display">Координати не обрано</div>
+                <div class="step-controls">
+                    <button id="backToRadiusBtn" class="secondary-btn">Назад</button>
+                    <button id="sendBtn" class="primary-btn" disabled>Знайти маршрут</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="workspace">
+            <div id="map-window" class="rounded-window">
+                <div id="map"></div>
+            </div>
+
+            <div id="info-window" class="rounded-window overlay-panel">
+                <h2 style="margin-top: 0;">Результати</h2>
+                <div id="route-stats" class="stats-box"></div>
+                <button id="backBtn" class="secondary-btn" style="width: 100%;">Новий пошук</button>
+            </div>
+        </div>
+
+        <!-- Tag Editor Modal -->
+        <div id="tag-editor-mask" class="modal-mask hidden">
+            <div id="tag-editor" class="solid-panel">
+                <h3>Редагування тегів</h3>
+                <p>Перетягніть теги між групами або видаліть зайві.</p>
+                <div id="tags-container"></div>
+                <div class="editor-controls">
+                    <button id="confirmRouteBtn" class="primary-btn">Побудувати маршрут</button>
+                    <button id="cancelRouteBtn" class="secondary-btn">Скасувати</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal-mask hidden">
+        <div class="auth-box landing-form liquid-glass">
+            <h2 style="text-align: center; margin-top: 0; margin-bottom: 15px;">Авторизація</h2>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Вхід</button>
+                <button class="auth-tab" data-tab="register">Реєстрація</button>
+            </div>
+
+            <div class="auth-error" id="authError"></div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Пароль</label>
+                    <input type="password" id="loginPassword" placeholder="••••••••" required>
+                </div>
+                <button id="loginBtn" class="step-btn">Увійти</button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <div class="input-group">
+                    <label>Ім'я користувача</label>
+                    <input type="text" id="regUsername" placeholder="Ваше ім'я" required>
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Пароль (мін. 8 символів)</label>
+                    <input type="password" id="regPassword" placeholder="••••••••" required>
+                </div>
+                <button id="registerBtn" class="step-btn">Зареєструватися</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 25px;">
+                <button id="closeAuthBtn" class="secondary-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
