@@ -2,6 +2,6 @@ global:
   scrape_interval: 30s
 
 scrape_configs:
-  - job_name: "lab2"
+  - job_name: "routePlanner"
     static_configs:
       - targets: ["api:8080"]
