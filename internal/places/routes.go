@@ -17,7 +17,7 @@ func RegisterRoutes(
 	logger *slog.Logger,
 	storage fiber.Storage,
 	placeCreateLimit int,
-	jwtService *auth.JWTService,
+	oidcService *auth.OIDCService,
 ) {
 	placeGroup := router.Group("/places")
 
@@ -33,12 +33,14 @@ func RegisterRoutes(
 		},
 		LimitReached: func(c *fiber.Ctx) error {
 			logger.Warn("Hourly limit exceeded", "user_id", c.Locals("user_id"))
-			return c.Status(fiber.StatusTooManyRequests).SendString("You have personally exceeded your hourly limit for creating reports.")
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Перевищено ліміт створення місць. Спробуйте пізніше.",
+			})
 		},
 	})
 
 	placeGroup.Get("/:id", handler.GetById)
-	placeGroup.Post("/", auth.JWTMiddleware(jwtService), placeCreateLimiter, handler.Create)
+	placeGroup.Post("/", auth.JWTMiddleware(oidcService), placeCreateLimiter, handler.Create)
 	placeGroup.Patch("/:id", handler.Update)
 	placeGroup.Delete("/:id", handler.DeleteById)
 

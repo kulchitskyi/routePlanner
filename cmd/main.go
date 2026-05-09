@@ -112,7 +112,11 @@ func main() {
 		LLMService.Warmup()
 	}()
 
-	jwtService := auth.NewJWTService(cfg.Auth.JWTSecret, cfg.Auth.JWTExpirationHours)
+	oidcService, err := auth.NewOIDCService(cfg.OIDC.Issuer)
+	if err != nil {
+		logger.Error("Failed to initialize OIDC Service", "error", err)
+		os.Exit(1)
+	}
 	userService := users.NewUserService(userRepo)
 	placeService := places.NewPlaceService(placeRepo)
 
@@ -130,7 +134,7 @@ func main() {
 		cfg.Server.CacheTagsRefreshTimeMin)
 
 	userHandler := users.NewHandler(userService, logger.With("layer", "user_handler"))
-	authHandler := users.NewAuthHandler(userService, jwtService, logger.With("layer", "auth_handler"))
+	oidcHandler := auth.NewOIDCHandler(oidcService, cfg, userService)
 	placeHandler := places.NewHandler(placeService, logger.With("layer", "place_handler"))
 	routeHandler := travelroutes.NewHandler(routeService, logger.With("layer", "route_handler"))
 
@@ -140,6 +144,7 @@ func main() {
 		ReadTimeout:           time.Duration(cfg.Server.ReadTimeout) * time.Second,
 		WriteTimeout:          time.Duration(cfg.Server.WriteTimeout) * time.Second,
 		IdleTimeout:           time.Duration(cfg.Server.IdleTimeout) * time.Second,
+		ReadBufferSize:        16384,
 	})
 
 	app.Use(cors.New(cors.Config{
@@ -168,10 +173,10 @@ func main() {
 
 	router.SetUpRoutes(app, router.Config{
 		UserHandler:  userHandler,
-		AuthHandler:  authHandler,
+		OIDCHandler:  oidcHandler,
 		PlaceHandler: placeHandler,
 		RouteHandler: routeHandler,
-		JWTService:   jwtService,
+		OIDCService:  oidcService,
 	}, logger, fiberStore, cfg)
 
 	idleConnsClosed := make(chan struct{})

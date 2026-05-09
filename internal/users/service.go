@@ -34,6 +34,25 @@ func (s *UserService) GetByEmail(ctx context.Context, email string) (*models.Use
 	return s.repo.GetByEmail(ctx, email)
 }
 
+func (s *UserService) GetOrCreateOIDCUser(ctx context.Context, id, email, name string) (*models.User, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err == nil && user != nil {
+		return user, nil
+	}
+	
+	newUser := &models.User{
+		ID:           id,
+		Name:         name,
+		Email:        email,
+		PasswordHash: "oidc-managed",
+	}
+	
+	if err := s.repo.Create(ctx, newUser); err != nil {
+		return nil, err
+	}
+	return newUser, nil
+}
+
 func (s *UserService) Create(ctx context.Context, u *models.UserCreateRequest) (*models.User, error) {
 	if u == nil || u.Name == "" || u.Email == "" || u.Password == "" {
 		return nil, er.ErrInvalidUserData

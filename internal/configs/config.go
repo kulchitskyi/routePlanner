@@ -39,9 +39,11 @@ type Config struct {
 		GeoapifyAPIKey string `env:"GEOAPIFY_API_KEY" validate:"required"`
 		ReqTimeout     int    `env:"GEOAPIFY_REQ_TIMEOUT" validate:"required"`
 	}
-	Auth struct {
-		JWTSecret          string `env:"JWT_SECRET" validate:"required"`
-		JWTExpirationHours int    `env:"JWT_EXPIRATION_HOURS" default:"24"`
+	OIDC struct {
+		Issuer       string `env:"OIDC_ISSUER" validate:"required"`
+		ClientID     string `env:"OIDC_CLIENT_ID" validate:"required"`
+		ClientSecret string `env:"OIDC_CLIENT_SECRET" validate:"required"`
+		RedirectURI  string `env:"OIDC_REDIRECT_URI" validate:"required"`
 	}
 }
 

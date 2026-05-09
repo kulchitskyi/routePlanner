@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func JWTMiddleware(jwtService *JWTService) fiber.Handler {
+func JWTMiddleware(oidcService *OIDCService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
@@ -21,7 +21,7 @@ func JWTMiddleware(jwtService *JWTService) fiber.Handler {
 		}
 
 		tokenString := parts[1]
-		userID, err := jwtService.ParseToken(tokenString)
+		userID, _, err := oidcService.ValidateToken(tokenString)
 		if err != nil {
 			return er.Unauthorized(c, "Invalid or expired token")
 		}

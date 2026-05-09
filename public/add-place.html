@@ -230,19 +230,37 @@
         }
 
         // Check auth on load
-        function checkAuth() {
-            const token = getToken();
-            const user = getUser();
-
-            if (token && user) {
-                const modal = document.getElementById('authModal');
-                modal.classList.add('hidden');
-                modal.classList.remove('active');
-                document.getElementById('userInfo').style.display = 'flex';
-                document.getElementById('userName').innerText = user.username;
-            } else {
-                document.getElementById('userInfo').style.display = 'none';
+        async function checkAuth() {
+            let token = getToken();
+            
+            // Check URL for token first (if redirected back here)
+            const params = new URLSearchParams(window.location.search);
+            const urlToken = params.get('token');
+            if (urlToken) {
+                token = urlToken;
+                localStorage.setItem('auth_token', token);
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
+
+            if (token) {
+                try {
+                    const res = await fetch(`${API_URL}/auth/user-info`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const user = { username: data.claims.preferred_username || data.claims.name || 'User' };
+                        setAuth(token, user);
+                        document.getElementById('userInfo').style.display = 'flex';
+                        document.getElementById('userName').innerText = user.username;
+                        return;
+                    } else {
+                        clearAuth();
+                    }
+                } catch (e) {}
+            }
+            
+            document.getElementById('userInfo').style.display = 'none';
         }
 
         // Tab switching
@@ -258,70 +276,14 @@
             });
         });
 
-        // Login
-        document.getElementById('loginBtn').addEventListener('click', async () => {
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-
-            if (!email || !password) {
-                showError('Заповніть всі поля');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    setAuth(data.token, data.user);
-                    checkAuth();
-                } else {
-                    showError(data.error || 'Невірний email або пароль');
-                }
-            } catch (e) {
-                showError('Помилка з\'єднання з сервером');
-            }
+        // Login redirect
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            window.location.href = `${API_URL}/auth/login`;
         });
 
-        // Register
-        document.getElementById('registerBtn').addEventListener('click', async () => {
-            const username = document.getElementById('regUsername').value;
-            const email = document.getElementById('regEmail').value;
-            const password = document.getElementById('regPassword').value;
-
-            if (!username || !email || !password) {
-                showError('Заповніть всі поля');
-                return;
-            }
-
-            if (password.length < 8) {
-                showError('Пароль повинен містити мінімум 8 символів');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_URL}/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    setAuth(data.token, data.user);
-                    checkAuth();
-                } else {
-                    showError(data.error || 'Помилка реєстрації');
-                }
-            } catch (e) {
-                showError('Помилка з\'єднання з сервером');
-            }
+        // Register redirect
+        document.getElementById('registerBtn').addEventListener('click', () => {
+            window.location.href = `${API_URL}/auth/login`;
         });
 
         // Logout
@@ -341,9 +303,7 @@
         document.getElementById('savePlaceBtn').addEventListener('click', async () => {
             const token = getToken();
             if (!token) {
-                const modal = document.getElementById('authModal');
-                modal.classList.add('active');
-                modal.classList.remove('hidden');
+                window.location.href = `${API_URL}/auth/login`;
                 return;
             }
 

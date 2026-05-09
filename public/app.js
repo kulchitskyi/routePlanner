@@ -9,12 +9,12 @@ class App {
         this.isProcessing = false;
 
         // Auth state
+        this.captureTokenFromUrl();
         this.token = this.getToken();
         this.user = this.getUser();
 
         // Map will be initialized when showing the window
         this.initEventListeners();
-        this.initAuthListeners();
         this.checkAuth();
     }
 
@@ -107,7 +107,7 @@ class App {
         // Auth Menu
         document.getElementById('loginMenuBtn')?.addEventListener('click', (e) => {
             e.preventDefault();
-            this.showAuthModal();
+            window.location.href = `${API_URL}/auth/login`;
         });
 
         document.getElementById('logoutMenuBtn')?.addEventListener('click', (e) => {
@@ -138,43 +138,45 @@ class App {
         }
     }
 
-    initAuthListeners() {
-        const authModal = document.getElementById('authModal');
-        if (!authModal) return;
-
-        // Tab switching
-        authModal.querySelectorAll('.auth-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                authModal.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-                authModal.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
-                tab.classList.add('active');
-                const formId = tab.dataset.tab + 'Form';
-                const form = document.getElementById(formId);
-                if (form) form.classList.add('active');
-                this.hideAuthError();
-            });
-        });
-
-        // Close modal
-        document.getElementById('closeAuthBtn')?.addEventListener('click', () => this.hideAuthModal());
-
-        // Login
-        document.getElementById('loginBtn')?.addEventListener('click', () => this.handleLogin());
-
-        // Register
-        document.getElementById('registerBtn')?.addEventListener('click', () => this.handleRegister());
-    }
-
     // Auth Methods
     getToken() { return localStorage.getItem('auth_token'); }
+    
     getUser() {
         const user = localStorage.getItem('auth_user');
         return user ? JSON.parse(user) : null;
     }
 
-    checkAuth() {
+    captureTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            localStorage.setItem('auth_token', token);
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    async checkAuth() {
         this.token = this.getToken();
-        this.user = this.getUser();
+        
+        if (this.token) {
+            try {
+                const res = await fetch(`${API_URL}/auth/user-info`, {
+                    headers: { 'Authorization': `Bearer ${this.token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.user = { username: data.claims.preferred_username || data.claims.name || 'User' };
+                    localStorage.setItem('auth_user', JSON.stringify(this.user));
+                } else {
+                    this.logout(false);
+                }
+            } catch (e) {
+                console.error("Failed to fetch user info", e);
+            }
+        } else {
+            this.user = null;
+        }
 
         const loginBtn = document.getElementById('loginMenuBtn');
         const logoutBtn = document.getElementById('logoutMenuBtn');
@@ -190,111 +192,19 @@ class App {
         }
     }
 
-    showAuthModal() {
-        const modal = document.getElementById('authModal');
-        if (modal) {
-            modal.classList.add('active');
-            modal.classList.remove('hidden');
-        }
-    }
-
-    hideAuthModal() {
-        const modal = document.getElementById('authModal');
-        if (modal) {
-            modal.classList.remove('active');
-            modal.classList.add('hidden');
-        }
-        this.hideAuthError();
-    }
-
-    showAuthError(msg) {
-        const el = document.getElementById('authError');
-        if (el) {
-            el.innerText = msg;
-            el.style.display = 'block';
-        }
-    }
-
-    hideAuthError() {
-        const el = document.getElementById('authError');
-        if (el) el.style.display = 'none';
-    }
-
-    async handleLogin() {
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-
-        if (!email || !password) {
-            this.showAuthError('Заповніть всі поля');
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await res.json();
-            if (res.ok) {
-                this.setAuth(data.token, data.user);
-                this.hideAuthModal();
-                this.showToast('Ви успішно увійшли!', 'info');
-            } else {
-                this.showAuthError(data.error || 'Невірний email або пароль');
-            }
-        } catch (e) {
-            this.showAuthError('Помилка з\'єднання з сервером');
-        }
-    }
-
-    async handleRegister() {
-        const username = document.getElementById('regUsername').value;
-        const email = document.getElementById('regEmail').value;
-        const password = document.getElementById('regPassword').value;
-
-        if (!username || !email || !password) {
-            this.showAuthError('Заповніть всі поля');
-            return;
-        }
-
-        if (password.length < 8) {
-            this.showAuthError('Пароль повинен бути не менше 8 символів');
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
-            });
-
-            const data = await res.json();
-            if (res.ok) {
-                this.setAuth(data.token, data.user);
-                this.hideAuthModal();
-                this.showToast('Реєстрація успішна!', 'info');
-            } else {
-                this.showAuthError(data.error || 'Помилка при реєстрації');
-            }
-        } catch (e) {
-            this.showAuthError('Помилка з\'єднання з сервером');
-        }
-    }
-
     setAuth(token, user) {
         localStorage.setItem('auth_token', token);
         localStorage.setItem('auth_user', JSON.stringify(user));
         this.checkAuth();
     }
 
-    logout() {
+    logout(showToast = true) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
+        this.token = null;
+        this.user = null;
         this.checkAuth();
-        this.showToast('Ви вийшли з аккаунта', 'info');
+        if (showToast) this.showToast('Ви вийшли з аккаунта', 'info');
     }
 
     showStep(step) {

@@ -13,10 +13,10 @@ import (
 
 type Config struct {
 	UserHandler  *users.Handler
-	AuthHandler  *users.AuthHandler
+	OIDCHandler  *auth.OIDCHandler
 	PlaceHandler *places.Handler
 	RouteHandler *travelroutes.Handler
-	JWTService   *auth.JWTService
+	OIDCService  *auth.OIDCService
 }
 
 func SetUpRoutes(
@@ -30,15 +30,20 @@ func SetUpRoutes(
 		panic("appConfig cannot be nil")
 	}
 
-	if cfg.PlaceHandler == nil || cfg.UserHandler == nil || cfg.RouteHandler == nil || cfg.AuthHandler == nil || cfg.JWTService == nil {
+	if cfg.PlaceHandler == nil || cfg.UserHandler == nil || cfg.RouteHandler == nil || cfg.OIDCHandler == nil || cfg.OIDCService == nil {
 		panic("all handlers in Config must be non-nil")
 	}
 
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
-	places.RegisterRoutes(v1, cfg.PlaceHandler, logger, storage, appConfig.Server.PlaceCreateLimitPerHour, cfg.JWTService)
-	users.RegisterRoutes(v1, cfg.UserHandler, cfg.AuthHandler, logger, cfg.JWTService)
+	authGroup := v1.Group("/auth")
+	authGroup.Get("/login", cfg.OIDCHandler.Login)
+	authGroup.Get("/callback", cfg.OIDCHandler.Callback)
+	authGroup.Get("/user-info", cfg.OIDCHandler.UserInfo)
+
+	places.RegisterRoutes(v1, cfg.PlaceHandler, logger, storage, appConfig.Server.PlaceCreateLimitPerHour, cfg.OIDCService)
+	users.RegisterRoutes(v1, cfg.UserHandler, logger)
 	travelroutes.RegisterRoutes(v1,
 		cfg.RouteHandler,
 		logger,
