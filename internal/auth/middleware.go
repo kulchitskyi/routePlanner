@@ -10,17 +10,24 @@ import (
 
 func JWTMiddleware(oidcService *OIDCService) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		var tokenString string
+
 		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return er.Unauthorized(c, "Missing authorization header")
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+				tokenString = parts[1]
+			}
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			return er.Unauthorized(c, "Invalid authorization header format")
+		if tokenString == "" {
+			tokenString = c.Cookies("auth_token")
 		}
 
-		tokenString := parts[1]
+		if tokenString == "" {
+			return er.Unauthorized(c, "Missing authorization")
+		}
+
 		userID, _, err := oidcService.ValidateToken(tokenString)
 		if err != nil {
 			return er.Unauthorized(c, "Invalid or expired token")

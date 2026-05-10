@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package weather;
+
+option go_package = "routePlanner/internal/proto/weather";
+
+message WeatherUpdate {
+    double latitude = 1;
+    double longitude = 2;
+    float temperature = 3;
+    float wind_speed = 4;
+    string conditions = 5;
+    int64 timestamp = 6;
+}

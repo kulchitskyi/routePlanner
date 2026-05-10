@@ -2,6 +2,7 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/contrib/websocket"
 	"log/slog"
 
 	"routePlanner/internal/auth"
@@ -9,14 +10,16 @@ import (
 	"routePlanner/internal/places"
 	"routePlanner/internal/travelroutes"
 	"routePlanner/internal/users"
+	"routePlanner/internal/weather"
 )
 
 type Config struct {
 	UserHandler  *users.Handler
 	OIDCHandler  *auth.OIDCHandler
-	PlaceHandler *places.Handler
-	RouteHandler *travelroutes.Handler
-	OIDCService  *auth.OIDCService
+	PlaceHandler   *places.Handler
+	RouteHandler   *travelroutes.Handler
+	OIDCService    *auth.OIDCService
+	WeatherHandler *weather.Handler
 }
 
 func SetUpRoutes(
@@ -30,7 +33,7 @@ func SetUpRoutes(
 		panic("appConfig cannot be nil")
 	}
 
-	if cfg.PlaceHandler == nil || cfg.UserHandler == nil || cfg.RouteHandler == nil || cfg.OIDCHandler == nil || cfg.OIDCService == nil {
+	if cfg.PlaceHandler == nil || cfg.UserHandler == nil || cfg.RouteHandler == nil || cfg.OIDCHandler == nil || cfg.OIDCService == nil || cfg.WeatherHandler == nil {
 		panic("all handlers in Config must be non-nil")
 	}
 
@@ -41,6 +44,11 @@ func SetUpRoutes(
 	authGroup.Get("/login", cfg.OIDCHandler.Login)
 	authGroup.Get("/callback", cfg.OIDCHandler.Callback)
 	authGroup.Get("/user-info", cfg.OIDCHandler.UserInfo)
+	authGroup.Post("/logout", cfg.OIDCHandler.Logout)
+
+	wsGroup := v1.Group("/ws")
+	wsGroup.Use("/weather", cfg.WeatherHandler.Upgrade)
+	wsGroup.Get("/weather", websocket.New(cfg.WeatherHandler.Stream))
 
 	places.RegisterRoutes(v1, cfg.PlaceHandler, logger, storage, appConfig.Server.PlaceCreateLimitPerHour, cfg.OIDCService)
 	users.RegisterRoutes(v1, cfg.UserHandler, logger)

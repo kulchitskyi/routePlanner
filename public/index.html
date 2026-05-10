@@ -6,12 +6,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Protobuf JS -->
+    <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js"></script>
+
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
     <div id="landing-container">
+
         <!-- Main Menu -->
         <div class="main-menu-container">
             <div class="menu-icon" id="mainMenuIcon">
@@ -87,9 +92,22 @@
             </div>
 
             <div id="info-window" class="rounded-window overlay-panel">
-                <h2 style="margin-top: 0;">Результати</h2>
-                <div id="route-stats" class="stats-box"></div>
-                <button id="backBtn" class="secondary-btn" style="width: 100%;">Новий пошук</button>
+                <div id="info-content">
+                    <h2 style="margin-top: 0;">Результати</h2>
+                    <div id="route-stats" class="stats-box"></div>
+                    <button id="backBtn" class="secondary-btn" style="width: 100%;">Новий пошук</button>
+                </div>
+                <!-- Weather Section (inside info panel, below route info) -->
+                <div id="weatherWidget" class="weather-inline" style="display: none;">
+                    <div class="weather-header">🌤️ Live Weather</div>
+                    <div class="weather-body">
+                        <div id="weatherTemp" class="weather-temp">--°C</div>
+                        <div class="weather-details">
+                            <span id="weatherCond">Loading...</span><br>
+                            <small>Wind: <span id="weatherWind">--</span> km/h</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

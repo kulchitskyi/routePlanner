@@ -197,25 +197,15 @@
     </div>
 
     <script type="module">
-        const API_URL = 'http://localhost:8080/api/v1';
+        const API_URL = `${location.origin}/api/v1`;
 
         // Auth State
-        function getToken() {
-            return localStorage.getItem('auth_token');
-        }
-
         function getUser() {
             const user = localStorage.getItem('auth_user');
             return user ? JSON.parse(user) : null;
         }
 
-        function setAuth(token, user) {
-            localStorage.setItem('auth_token', token);
-            localStorage.setItem('auth_user', JSON.stringify(user));
-        }
-
         function clearAuth() {
-            localStorage.removeItem('auth_token');
             localStorage.removeItem('auth_user');
         }
 
@@ -231,34 +221,21 @@
 
         // Check auth on load
         async function checkAuth() {
-            let token = getToken();
-            
-            // Check URL for token first (if redirected back here)
-            const params = new URLSearchParams(window.location.search);
-            const urlToken = params.get('token');
-            if (urlToken) {
-                token = urlToken;
-                localStorage.setItem('auth_token', token);
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-
-            if (token) {
-                try {
-                    const res = await fetch(`${API_URL}/auth/user-info`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        const user = { username: data.claims.preferred_username || data.claims.name || 'User' };
-                        setAuth(token, user);
-                        document.getElementById('userInfo').style.display = 'flex';
-                        document.getElementById('userName').innerText = user.username;
-                        return;
-                    } else {
-                        clearAuth();
-                    }
-                } catch (e) {}
-            }
+            try {
+                const res = await fetch(`${API_URL}/auth/user-info`, {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const user = { username: data.claims.preferred_username || data.claims.name || 'User' };
+                    localStorage.setItem('auth_user', JSON.stringify(user));
+                    document.getElementById('userInfo').style.display = 'flex';
+                    document.getElementById('userName').innerText = user.username;
+                    return;
+                } else {
+                    clearAuth();
+                }
+            } catch (e) {}
             
             document.getElementById('userInfo').style.display = 'none';
         }
@@ -287,7 +264,8 @@
         });
 
         // Logout
-        document.getElementById('logoutBtn').addEventListener('click', () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
             clearAuth();
             checkAuth();
         });
@@ -301,8 +279,13 @@
 
         // Save Place
         document.getElementById('savePlaceBtn').addEventListener('click', async () => {
-            const token = getToken();
-            if (!token) {
+            try {
+                const res = await fetch(`${API_URL}/auth/user-info`, { credentials: 'include' });
+                if (!res.ok) {
+                    window.location.href = `${API_URL}/auth/login`;
+                    return;
+                }
+            } catch (e) {
                 window.location.href = `${API_URL}/auth/login`;
                 return;
             }
@@ -332,9 +315,9 @@
                 const response = await fetch(`${API_URL}/places`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify(data)
                 });
 

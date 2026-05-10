@@ -106,38 +106,51 @@ func (h *OIDCHandler) Callback(c *fiber.Ctx) error {
 		_, _ = h.userService.GetOrCreateOIDCUser(c.Context(), userID, email, name)
 	}
 
-	html := fmt.Sprintf(`
-		<!DOCTYPE html>
-		<html>
-		<head><title>Authenticating...</title></head>
-		<body>
-			<script>
-				localStorage.setItem('auth_token', '%s');
-				window.location.href = '/';
-			</script>
-		</body>
-		</html>
-	`, tokenResp.IDToken)
+	c.Cookie(&fiber.Cookie{
+		Name:     "auth_token",
+		Value:    tokenResp.IDToken,
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: "Strict",
+		MaxAge:   3600,
+	})
 
-	c.Set("Content-Type", "text/html")
-	return c.SendString(html)
+	return c.Redirect("/")
+}
+
+func (h *OIDCHandler) Logout(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		HTTPOnly: true,
+		Secure:   true,
+		SameSite: "Strict",
+		MaxAge:   -1,
+	})
+	return c.JSON(fiber.Map{"status": "logged out"})
 }
 
 func (h *OIDCHandler) UserInfo(c *fiber.Ctx) error {
+	var tokenString string
 	authHeader := c.Get("Authorization")
-	if authHeader == "" {
-		return er.Unauthorized(c, "Missing authorization header")
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+			tokenString = parts[1]
+		}
+	}
+	if tokenString == "" {
+		tokenString = c.Cookies("auth_token")
+	}
+	if tokenString == "" {
+		return er.Unauthorized(c, "Missing authorization")
 	}
 
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return er.Unauthorized(c, "Invalid authorization header format")
-	}
-
-	tokenString := parts[1]
 	sub, claims, err := h.oidcService.ValidateToken(tokenString)
 	if err != nil {
-		return er.Unauthorized(c, "Invalid or expired token: " + err.Error())
+		return er.Unauthorized(c, "Invalid or expired token: "+err.Error())
 	}
 
 	return c.JSON(fiber.Map{

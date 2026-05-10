@@ -29,6 +29,7 @@ import (
 	"routePlanner/internal/router"
 	"routePlanner/internal/travelroutes"
 	"routePlanner/internal/users"
+	"routePlanner/internal/weather"
 	"routePlanner/pkg/db"
 )
 
@@ -133,10 +134,12 @@ func main() {
 		geoapifyClient,
 		cfg.Server.CacheTagsRefreshTimeMin)
 
+
 	userHandler := users.NewHandler(userService, logger.With("layer", "user_handler"))
 	oidcHandler := auth.NewOIDCHandler(oidcService, cfg, userService)
 	placeHandler := places.NewHandler(placeService, logger.With("layer", "place_handler"))
 	routeHandler := travelroutes.NewHandler(routeService, logger.With("layer", "route_handler"))
+	weatherHandler := weather.NewHandler(oidcService)
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
@@ -148,9 +151,12 @@ func main() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: cfg.Server.AllowOrigins,
-		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders: "Content-Type, Authorization",
+		AllowOriginsFunc: func(origin string) bool {
+			return true
+		},
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Content-Type, Authorization",
+		AllowCredentials: true,
 	}))
 
 	app.Use(func(c *fiber.Ctx) error {
@@ -172,11 +178,12 @@ func main() {
 	app.Static("/", "./public")
 
 	router.SetUpRoutes(app, router.Config{
-		UserHandler:  userHandler,
-		OIDCHandler:  oidcHandler,
-		PlaceHandler: placeHandler,
-		RouteHandler: routeHandler,
-		OIDCService:  oidcService,
+		UserHandler:    userHandler,
+		OIDCHandler:    oidcHandler,
+		PlaceHandler:   placeHandler,
+		RouteHandler:   routeHandler,
+		OIDCService:    oidcService,
+		WeatherHandler: weatherHandler,
 	}, logger, fiberStore, cfg)
 
 	idleConnsClosed := make(chan struct{})
@@ -208,7 +215,8 @@ func main() {
 	}()
 
 	logger.Info("Server is starting", "port", cfg.Server.Port)
-	if err := app.Listen(":" + cfg.Server.Port); err != nil {
+	//Listen(":" + cfg.Server.Port);
+	if err := app.ListenTLS(":443", "localhost+1.pem", "localhost+1-key.pem"); err != nil {
 		logger.Error("Failed to start server", "error", err)
 	}
 

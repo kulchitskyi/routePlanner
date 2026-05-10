@@ -34,9 +34,11 @@ services:
     env_file:
       - .env
     ports:
-      - "${SERVER_PORT}:8080"
+      - "443:443"
     volumes:
       - ./public:/app/public
+      - ./localhost+1.pem:/app/localhost+1.pem:ro
+      - ./localhost+1-key.pem:/app/localhost+1-key.pem:ro
 
     depends_on:
       db:
@@ -46,6 +48,7 @@ services:
     stop_grace_period: 30s
 
     restart: always
+
 
   redis:
     image: 'redis:7-alpine'

@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api/v1';
+const API_URL = `${location.origin}/api/v1`;
 
 // Map management
 class App {
@@ -9,8 +9,6 @@ class App {
         this.isProcessing = false;
 
         // Auth state
-        this.captureTokenFromUrl();
-        this.token = this.getToken();
         this.user = this.getUser();
 
         // Map will be initialized when showing the window
@@ -139,42 +137,30 @@ class App {
     }
 
     // Auth Methods
-    getToken() { return localStorage.getItem('auth_token'); }
-    
     getUser() {
         const user = localStorage.getItem('auth_user');
         return user ? JSON.parse(user) : null;
     }
 
-    captureTokenFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        if (token) {
-            localStorage.setItem('auth_token', token);
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-    }
-
     async checkAuth() {
-        this.token = this.getToken();
-        
-        if (this.token) {
-            try {
-                const res = await fetch(`${API_URL}/auth/user-info`, {
-                    headers: { 'Authorization': `Bearer ${this.token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    this.user = { username: data.claims.preferred_username || data.claims.name || 'User' };
-                    localStorage.setItem('auth_user', JSON.stringify(this.user));
-                } else {
-                    this.logout(false);
-                }
-            } catch (e) {
-                console.error("Failed to fetch user info", e);
+        console.log('[DEBUG] checkAuth - checking cookie-based auth');
+        try {
+            const res = await fetch(`${API_URL}/auth/user-info`, {
+                credentials: 'include'
+            });
+            if (res.ok) {
+                const data = await res.json();
+                this.user = { username: data.claims.preferred_username || data.claims.name || 'User' };
+                this.isAuthenticated = true;
+                localStorage.setItem('auth_user', JSON.stringify(this.user));
+            } else {
+                this.isAuthenticated = false;
+                this.user = null;
+                localStorage.removeItem('auth_user');
             }
-        } else {
+        } catch (e) {
+            console.error("Failed to fetch user info", e);
+            this.isAuthenticated = false;
             this.user = null;
         }
 
@@ -182,26 +168,95 @@ class App {
         const logoutBtn = document.getElementById('logoutMenuBtn');
         const usernameSpan = document.getElementById('menuUsername');
 
-        if (this.token && this.user) {
+        if (this.isAuthenticated && this.user) {
+            console.log('[DEBUG] User authenticated, calling setupWeatherWebSocket');
             if (loginBtn) loginBtn.style.display = 'none';
             if (logoutBtn) logoutBtn.style.display = 'flex';
             if (usernameSpan) usernameSpan.innerText = this.user.username;
+            
+            this.setupWeatherWebSocket();
         } else {
-            if (loginBtn) loginBtn.style.display = 'flex';
+            console.log('[DEBUG] NOT authenticated');if (loginBtn) loginBtn.style.display = 'flex';
             if (logoutBtn) logoutBtn.style.display = 'none';
+            
+            if (this.weatherWs) {
+                this.weatherWs.close();
+                this.weatherWs = null;
+            }
         }
     }
 
-    setAuth(token, user) {
-        localStorage.setItem('auth_token', token);
+    async setupWeatherWebSocket() {
+        if (typeof protobuf === 'undefined') {
+            console.warn("protobuf.js not loaded on this page");
+            return;
+        }
+        
+        try {
+            const root = await protobuf.load("proto/weather.proto");
+            this.WeatherUpdateMsg = root.lookupType("weather.WeatherUpdate");
+            
+            const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${wsProto}://${location.host}/api/v1/ws/weather`;
+            console.log('[DEBUG] Creating WebSocket:', wsUrl);
+            this.weatherWs = new WebSocket(wsUrl);
+            this.weatherWs.binaryType = "arraybuffer"; 
+            
+            this.weatherWs.onopen = () => {
+                console.log("Weather WebSocket Connected (waiting for location)");
+            };
+            
+            this.weatherWs.onmessage = (event) => {
+                try {
+                    const buffer = new Uint8Array(event.data);
+                    const message = this.WeatherUpdateMsg.decode(buffer);
+                    
+                    const widget = document.getElementById('weatherWidget');
+                    const tempEl = document.getElementById('weatherTemp');
+                    const condEl = document.getElementById('weatherCond');
+                    const windEl = document.getElementById('weatherWind');
+                    
+                    if (tempEl) tempEl.innerText = `${Math.round(message.temperature)}°C`;
+                    if (condEl) condEl.innerText = message.conditions;
+                    if (windEl) windEl.innerText = Math.round(message.windSpeed);
+                    
+                    // Show widget on first weather data received
+                    if (widget) widget.style.display = 'flex';
+                } catch (e) {
+                    console.error("Failed to decode Protobuf:", e);
+                }
+            };
+            
+            this.weatherWs.onerror = (error) => {
+                console.error("Weather WebSocket Error:", error);
+            };
+            
+            this.weatherWs.onclose = () => {
+                console.log("Weather WebSocket Disconnected");
+                const widget = document.getElementById('weatherWidget');
+                if (widget) widget.style.display = 'none';
+            };
+        } catch (e) {
+            console.error("Protobuf initialization failed:", e);
+        }
+    }
+
+    setAuth(user) {
         localStorage.setItem('auth_user', JSON.stringify(user));
         this.checkAuth();
     }
 
-    logout(showToast = true) {
-        localStorage.removeItem('auth_token');
+    async logout(showToast = true) {
+        try {
+            await fetch(`${API_URL}/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (e) {
+            console.error('Logout request failed', e);
+        }
         localStorage.removeItem('auth_user');
-        this.token = null;
+        this.isAuthenticated = false;
         this.user = null;
         this.checkAuth();
         if (showToast) this.showToast('Ви вийшли з аккаунта', 'info');
@@ -285,6 +340,11 @@ class App {
 
         const sendBtn = document.getElementById('sendBtn');
         if (sendBtn) sendBtn.disabled = false;
+
+        // Send coordinates to the weather WebSocket for dynamic location polling
+        if (this.weatherWs && this.weatherWs.readyState === WebSocket.OPEN) {
+            this.weatherWs.send(JSON.stringify({ lat: lat, lng: lng }));
+        }
     }
 
     createCombinedIcon(label) {
@@ -323,9 +383,10 @@ class App {
 
     async analyzeRequest(pref) {
         try {
-            const response = await fetch('http://localhost:8080/api/v1/routes/analyze', {
+            const response = await fetch(`${API_URL}/routes/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ preferences: pref })
             });
 
@@ -531,9 +592,10 @@ class App {
 
             this.routeLayer.clearLayers();
 
-            const response = await fetch('http://localhost:8080/api/v1/routes/build', {
+            const response = await fetch(`${API_URL}/routes/build`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(payload)
             });
 
@@ -642,9 +704,9 @@ class App {
     }
 
     showPlaceInfo(name, desc) {
-        const infoWin = document.getElementById('info-window');
+        const infoContent = document.getElementById('info-content');
         if (!this.originalInfoContent) {
-            this.originalInfoContent = infoWin.innerHTML;
+            this.originalInfoContent = infoContent.innerHTML;
         }
 
         const descHtml = `
@@ -653,13 +715,13 @@ class App {
             <div id="route-stats" class="stats-box" style="display:block">Загальна відстань: ${this.totalDistanceKm} км</div>
             <button id="backBtn" class="secondary-btn" style="width: 100%;">Новий пошук</button>
         `;
-        infoWin.innerHTML = descHtml;
+        infoContent.innerHTML = descHtml;
         this.bindBackButton();
     }
 
     restorePlaceInfo() {
         if (this.originalInfoContent) {
-            document.getElementById('info-window').innerHTML = this.originalInfoContent;
+            document.getElementById('info-content').innerHTML = this.originalInfoContent;
             this.bindBackButton();
         }
     }

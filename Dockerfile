@@ -13,5 +13,5 @@ WORKDIR /app
 COPY --from=builder /app/server .
 COPY --from=builder /app/api ./api
 #COPY --from=builder /app/public ./public
-EXPOSE 8080
+EXPOSE 443
 CMD ["./server"]
